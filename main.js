@@ -159,7 +159,7 @@ function setNote(noteNum){
 
 var circleX, circleY, velocitysize = 0;
 var mic, fft, shapeW;
-var numBands = 32;
+var numBands = 64;
 
 function setup() {
   createCanvas(canvasX, canvasY);
@@ -203,14 +203,15 @@ function draw() {
   if(mic.getLevel() > 0){
   	var count = 0;
     var spectrum = fft.analyze();
-    for(var i = 0; i < spectrum.length; i++){
+    for(var i = spectrum.length; i > 0; i--){
 			var amp = spectrum[i];
       if(amp == 0)
       {
       	continue;
       }
       count++;
-      var shapeY = map(amp, 0, 256, height, 0);
+			var sqamp = Math.sqrt(amp);
+      var shapeY = map(sqamp, 0, 256, height, 0);
       noStroke();
       fill(amp, 128, 128);
       rect(count*shapeW, shapeY+40, shapeW, height-shapeY);
