@@ -211,7 +211,7 @@ function draw() {
       }
       count++;
 			var sqamp = Math.sqrt(amp);
-      var shapeY = map(sqamp, 0, 256, height, 0);
+      var shapeY = map(sqamp, 0, 16, height, 0);
       noStroke();
       fill(amp, 128, 128);
       rect(count*shapeW, shapeY+40, shapeW, height-shapeY);
