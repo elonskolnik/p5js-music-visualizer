@@ -1,3 +1,4 @@
+//<script src="https://cdn.jsdelivr.net/gh/elonskolnik/p5js-music-visualizer@main/main.js 
 var noteOn = false;
 var noteNum = 1;
 var note = "";
@@ -158,18 +159,21 @@ function setNote(noteNum){
 }
 
 var circleX, circleY, velocitysize = 0;
-var mic, fft, shapeW;
-var numBands = 64;
+var mic, ampfft, wavefft, shapeW;
+var numBands = 32;
+var waveBands = 2048;
 
 function setup() {
-  createCanvas(canvasX, canvasY);
+  createCanvas(windowWidth, windowHeight);
   colorMode(HSB);
   angleMode(DEGREES);
+  smooth();
   
   loadFont('https://cdn.prod.website-files.com/63e530686f211b120ea271c6/67b67656f61615fb9e300337_Ubuntu-Medium.ttf', font => {
     fill('white');
-    textFont(font, 16);
+    textFont(font, 32);
   });
+  text('tap on screen', windowWidth/2, windowHeight/2);
   
   strokeWeight(2);
   noFill();
@@ -178,9 +182,17 @@ function setup() {
   
   getAudioContext().suspend();
   mic = new p5.AudioIn();
-  fft = new p5.FFT(0.9, numBands);
-  fft.setInput(mic);
-  shapeW = width/numBands;
+  
+  ampfft = new p5.FFT(0.95, numBands);
+  ampfft.setInput(mic);
+  ampW = width/numBands;
+  
+  wavefft = new p5.FFT(0.8, waveBands);
+  wavefft.setInput(mic);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
 
 function mousePressed() {
@@ -201,22 +213,59 @@ function draw() {
   }*/
   background('black');
   if(mic.getLevel() > 0){
-  	var count = 0;
-    var spectrum = fft.analyze();
+  
+    //amplitude
+    var spectrum = ampfft.analyze();
     for(var i = spectrum.length; i > 0; i--){
 			var amp = spectrum[i];
-      if(amp == 0)
-      {
-      	continue;
-      }
-      count++;
 			var sqamp = Math.sqrt(amp);
       var shapeY = map(sqamp, 0, 16, height, 0);
       noStroke();
       fill(amp, 128, 128);
-      rect(count*shapeW, shapeY+40, shapeW, height-shapeY);
+      //rect(i*ampW, shapeY+40, ampW, height-shapeY);
     }
-    console.log(spectrum);
+    
+    //waveform
+    var wavespectrum = wavefft.waveform();
+    strokeWeight(9);
+    //stroke('hotpink');
+    noFill();
+    beginShape();
+    
+    var negtotal = 0;
+    var postotal = 0;
+    var negcount = 0;
+    var poscount = 0;
+    
+    for(var i = 0; i < wavespectrum.length; i++){     
+    	var wavehue = map(poscount, 800, 1200, 0, 360);
+      var wavesat = map(negcount, 800, 1200, 30, 100);
+      var waveb = map(poscount, 800, 1200, 30, 100);
+    	stroke(wavehue, wavesat, waveb);
+      
+			var waveX = map(i, 0, wavespectrum.length, 0, width);
+      var waveY = map(wavespectrum[i], -1, 1, height*6, -height*6);
+     	vertex(waveX, waveY+height/2);
+      
+      if(wavespectrum[i] < 0){
+      	negtotal += wavespectrum[i];
+        negcount++;
+      } else{
+        	postotal += wavespectrum[i];
+          poscount++;
+      }
+    }
+    endShape();
+    /*if(frameCount % 100 == 0){
+        var backhue = map(negcount, 800, 1200, 0, 360);
+        var backb = map(negcount, 800, 1200, 0, 25);
+        background(backhue, backb, backb);
+    }*/
+    
+    negtotal /= negcount;
+    postotal /= poscount;
+    //console.log(`Neg: ${negtotal} -- Pos: ${postotal}`);
+    console.log(`poscount = ${poscount}\n negcount = ${negcount}`);
   }
   if(noteOn){
   	circleX = map(noteNum, 0, 88, 150, width-150);
