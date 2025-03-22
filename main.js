@@ -206,8 +206,19 @@ function setNote(noteNum){
 
 var circleX, circleY, velocitysize = 0;
 var mic, ampfft, wavefft, shapeW;
-var numBands = 32;
-var waveBands = 2048;
+var bass, bassThreshold = 150;
+var treble, mid;
+var numBands = 64;
+var waveBands = 1024;
+var stars = [];
+var numStars = 500;
+var planetSize;
+
+function preload() {
+	planetTexture = loadImage('https://cdn.prod.website-files.com/63e530686f211b120ea271c6/67dc901eb178355a88e2ad62_moontexture.jpg');
+  backImg = loadImage('https://cdn.prod.website-files.com/63e530686f211b120ea271c6/67dc9bda517d06b441555a12_nebula.jpg');
+  ringTexture = loadImage('https://cdn.prod.website-files.com/63e530686f211b120ea271c6/67de07ac4b0b9419f91499d9_ringtexture.jpg');
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
@@ -219,13 +230,13 @@ function setup() {
     fill('white');
     textFont(font, 32);
   });
-  text('tap on screen', windowWidth/2, windowHeight/2);
+  text('tap on screen', width/2, height/2);
   
   strokeWeight(2);
   noFill();
   stroke('black');
   noteColor = 'gold';
-  background('black');
+  background(0, 5, 5);
   
   getAudioContext().suspend();
   mic = new p5.AudioIn();
@@ -236,6 +247,20 @@ function setup() {
   
   wavefft = new p5.FFT(0.8, waveBands);
   wavefft.setInput(mic);
+  
+  planetSize = height/3;
+  
+  //initialize stars array
+  for(var i = 0; i < numStars; i++){
+  	var star = {
+    	x:random(-width, width),
+      y:random(-height, height),
+      z:random(-planetSize - 200, planetSize/2),
+      size:random(1, 5),
+      alpha:random(30, 95)
+  		};
+  	stars.push(star);
+  }
 }
 
 function windowResized() {
@@ -246,115 +271,177 @@ function mousePressed() {
 	userStartAudio();
   mic.start();
 }
+var spectrum, amp, sqamp;
+var wavehue, wavesat, waveb, enchue;
+var waveX, waveY, waveZ;
+var rotateAngle = 0;
+var rotateInc = 0.2;
+var planetTexture, backImg;
+//var planetSize;
+var planetHue = 180;
+var planetB = 60;
+var planetScale = 1;
+var starX, starY, starZ, starInterval, starSize, starScale;
 
-function draw() { 
-	//mic test
-  /*var vol = mic.getLevel();
-  console.log(vol);
-  fill('white');
-  circle(width/4, height/2, vol*10000);
-  */
-  
-  /*if(frameCount % 1000 == 0){
-  	background('black');
-  }*/
-  // Enable orbiting with the mouse.
+function draw() {  
   orbitControl();
-
-  // Turn on the lights.
-  ambientLight(255);
-  directionalLight(255, 255, 255, 0, 0, -1);
-  
   background(0, 5, 5);
+  //image(backImg, 0, 0, -200);
+
+  ambientLight(0, 0, 60);
+  directionalLight(0, 0, 100, 0, 0, -1);
+   
   if(mic.getLevel() > 0){
   
     //amplitude
-    var spectrum = ampfft.analyze();
-    var amp, sqamp, shapeY;
-    var wavehue, wavesat, waveb;
-    var enchue;
+    spectrum = ampfft.analyze();
+    wavehue = 270;
+    wavesat, waveb = 90;
+     
+    //declare bass treble and mid
+    bass = ampfft.getEnergy('bass');
+    treble = ampfft.getEnergy('treble');
+    mid = ampfft.getEnergy('mid');
     
     for(var i = spectrum.length; i > 0; i--){
 			amp = spectrum[i];
-      wavehue = map(amp, 0, 255, 0, 360);
+      planetB = map(amp, 0, 255, 30, 90);
+      /*sqamp = Math.sqrt(amp);
+      shapeY = map(sqamp, 0, 16, height, 0);
+      console.log(amp);
+      rect(i*ampW, shapeY+40, ampW, height-shapeY);*/
+    }
       
-      enchue = wavehue + enc1;
-      if(enchue <= 360){
-      	wavehue = enchue;
-      } else{
-      	wavehue = enchue - 360;
-      }
-      
-      //sqamp = Math.sqrt(amp);
-      //shapeY = map(sqamp, 0, 16, height, 0);
-      //console.log(amp);
-      //rect(i*ampW, shapeY+40, ampW, height-shapeY);
+		//detup waveform around ring
+    var wavespectrum = wavefft.waveform();
+    strokeWeight(5);
+    beginShape(QUAD_STRIP);
+
+    var negtotal, postotal, negcount, poscount = 0;
+    var xradius = planetSize * 1.5;
+    var zradius = planetSize + 150;
+		
+    enchue = map(enc2, 0, 127, 0, 360);
+   
+    if(isNaN(wavehue)){
+    	wavehue = 270;
     }
     
-    //waveform
-    var wavespectrum = wavefft.waveform();
-    strokeWeight(9);
-    //stroke('hotpink');
-    noFill();
-    beginShape(QUAD_STRIP);
-    
-    var negtotal = 0;
-    var postotal = 0;
-    var negcount = 0;
-    var poscount = 0;
-    
-    for(var i = 0; i < wavespectrum.length; i++){     
-      wavesat = map(negcount, 800, 1200, 85, 100);
-      waveb = map(poscount, 800, 1200, 85, 100);
-    	//stroke(wavehue, wavesat, waveb);
+    for(var i = 0; i < waveBands; i++){     
+      wavesat = 80;
+      waveb = map(poscount, 800, 1200, 85, 95);
+      //stroke(wavehue, wavesat, waveb);
       //fill(wavehue, wavesat, waveb);
-      
-			var waveX = map(i, 0, wavespectrum.length, -width*1.5, width*1.5);
-      var waveY = map(wavespectrum[i], -1, 1, height*6, -height*6);
-     	var waveZ = map(amp, 60, 150, -200, 200); 
-      
-      if(frameCount % 2 == 0){
-      	wavehue = map(waveY, height, -height, 0, 360);
-        enchue = wavehue + enc2;
-        if(enchue <= 360){
-          wavehue = enchue;
-        } else{
-          wavehue = enchue - 360;
-        }
-      }
-      //wavehue = map(negcount, 800, 1200, 20, 340);
+      //var angle = map(i, 0, waveBands, 0, TWO_PI);
+
+      waveX = cos(i) * xradius;
+      waveY = map(wavespectrum[i], -1, 1, height, -height);
+      waveZ = sin(i) * zradius;
+
+      //wavehue = map(treble, 0, 255, 0, 15);
+    //draw waveform ring
+    push();
+      noFill();
+   		//console.log(`hue ${wavehue} sat ${wavesat} b ${waveb}`);
+      wavehue = enchue + map(treble, 0, 255, 0, 30);
       stroke(wavehue, wavesat, waveb);
-      let endPoint = createVector(0, 20);
-    	endPoint.rotate((endPoint.z + frameCount) * 0.1);
-      vertex(waveX, waveY, endPoint.z);
-      
+      vertex(waveX, waveY, waveZ);
+
       if(wavespectrum[i] < 0){
-      	negtotal += wavespectrum[i];
+        negtotal += wavespectrum[i];
         negcount++;
       } else{
-        	postotal += wavespectrum[i];
-          poscount++;
+        postotal += wavespectrum[i];
+        poscount++;
       }
     }
     endShape();
-    /*if(frameCount % 100 == 0){
-        var backhue = map(negcount, 800, 1200, 0, 360);
-        var backb = map(negcount, 800, 1200, 0, 25);
-        background(backhue, backb, backb);
-    }*/
-    
-    negtotal /= negcount;
+    pop();
+    /* negtotal /= negcount;
     postotal /= poscount;
-    //console.log(`Neg: ${negtotal} -- Pos: ${postotal}`);
-    //console.log(`poscount = ${poscount}\n negcount = ${negcount}`);
+    console.log(`Neg: ${negtotal} -- Pos: ${postotal}`);
+    console.log(`poscount = ${poscount}\n negcount = ${negcount}`);*/
   }
-  if(noteOn){
-  	circleX = map(midimsg, 0, 88, 150, width-150);
-    circleY = map(midimsg, 0, 88, 150, height-150);
+  
+  //set encoder for stars
+  numStars = map(enc4, 0, 127, 50, 1000);
+  if(isNaN(numStars)){
+  	numStars = stars.length;
+  }
+  console.log(numStars);
+  var diff = stars.length - numStars;
+  if(diff > 0){ //array is too long
+  	for(var i = 0; i < diff; i++){
+  		stars.pop();
+    }
+  }
+  else if(diff < 0){ //array is too short
+  	for(var i = 0; i < Math.abs(diff); i++){
+      var star = {
+        x:random(-width, width),
+        y:random(-height, height),
+        z:random(-planetSize - 200, planetSize/2),
+        size:random(1, 3),
+        alpha:random(30, 95)
+        };
+      stars.push(star);
+      }
+  }
+  //render stars
+  for(var i = 0; i < stars.length; i++){
+  		push();
+    	var starb = random(30, 95)
+      starScale = map(treble, 0, 255, 1, 7);
+      starSize = random(1, 3);
+      
+    	translate(stars[i].x, stars[i].y, stars[i].z);
+      noStroke();
+      ambientMaterial(0, 0, starb, starb);
+      
+      scale(starScale);
+    	sphere(starSize);
+      pop();
+	}
+  
+  //set encoder parameters for planet
+  rotateInc = map(enc3, 0, 127, 0, 4);
+  if(isNaN(rotateInc)){
+  	rotateInc = 0.2;
+  }
+  
+  planetHue = map(enc1, 0, 127, 0, 360);
+  if(isNaN(planetHue)){
+  	planetHue = 180;
+  }
+  
+  /*planetScale = map(enc4, 0, 127, 0.8, 1.2);
+  if(isNaN(planetScale)){
+  	planetScale = 1;
+  }*/
+  if(bass > bassThreshold){
+  	planetScale = map(bass, bassThreshold, 255, 1, 1.3);
+  }
+  
+  //create planet
+  push();
+  	noStroke();
+  	ambientMaterial(planetHue, planetB, planetB);
+  	texture(planetTexture);
+  	scale(planetScale);
+  	rotateX(rotateAngle);
+  	rotateY(rotateAngle);
+  	sphere(planetSize);
+  	rotateAngle += rotateInc;
+  pop();
+  
+  //draw notes
+	/*if(noteOn && midivelocity > 0){
+  	circleX = map(midimsg, 0, 88, -width+100, width-100);
+    circleY = map(midimsg, 0, 88, -height+100, height-100);
     velocitysize = map(midivelocity, 1, 127, 20, 200);
   	fill(noteColor);
   	circle(circleX, noteY, velocitysize);
     fill('white');
     text(note, circleX, noteY);
-  }  
+  }*/  
 }
