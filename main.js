@@ -19,27 +19,6 @@ var audioIn, lvl;
 const canvasX = 1180;
 const canvasY = 820;
 
-/*navigator.mediaDevices.getUserMedia({ audio: true })
-  .then(function(stream) {
-    console.log('Audio stream obtained', stream);
-    const audioContext = new AudioContext();
-    audioIn = audioContext.createMediaStreamSource(stream);
-  })
-  .catch(function(err) {
-    // Handle errors
-    console.error('Error accessing microphone:', err);
-  });
-
-navigator.mediaDevices.enumerateDevices()
-    .then((devices) => {
-      devices.forEach((device) => {
-        console.log(`${device.kind}: ${device.label} id = ${device.deviceId}`);
-      });
-    })
-    .catch((err) => {
-      console.error(`${err.name}: ${err.message}`);
-    });
-*/
 navigator.requestMIDIAccess()
     .then(onMIDISuccess, onMIDIFailure);
 
@@ -92,11 +71,11 @@ function getMIDImessage(msg){
   /*} else if(!Number.isNaN(midimsg)){
   	console.log("Note " + note + " " + midimsg + " off\n");*/
   }
-  /*if(midimsg != undefined){
+  if(midimsg != undefined){
   	console.log(`MIDI Type: ${midimsgtype}\n Message: ${midimsg}\n Velocity: ${midivelocity}`);
-  }*/
+  }
   
-  if(midimsgtype == 179){
+  if(midimsgtype == 176 || midimsgtype == 178 || midimsgtype == 179){ 
   	setEncoder(midimsg, midivelocity);
   }
 }
@@ -125,7 +104,8 @@ function setEncoder(midimsg, midivelocity){
     case 27:
     	enc7 = midivelocity;
       break;
-    case 28:
+    //resonance CC 71
+    case 71:
     	enc8 = midivelocity;
       break;
     default:
@@ -253,18 +233,23 @@ function setup() {
   //initialize stars array
   for(var i = 0; i < numStars; i++){
   	var star = {
-    	x:random(-width, width),
-      y:random(-height, height),
+    	x:random(-width*1.2, width*1.2),
+      y:random(-height*1.2, height*1.2),
       z:random(-planetSize - 200, planetSize/2),
-      size:random(1, 5),
-      alpha:random(30, 95)
+      brightness:random(20, 80)
   		};
   	stars.push(star);
   }
 }
 
+//resize canvas to reflect window size
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+}
+
+//resize canvas on double click (for HDMI display)
+function doubleClicked() {
+	resizeCanvas(3840, 2160);
 }
 
 function mousePressed() {
@@ -281,7 +266,7 @@ var planetTexture, backImg;
 var planetHue = 180;
 var planetB = 60;
 var planetScale = 1;
-var starX, starY, starZ, starInterval, starSize, starScale;
+var starX, starY, starZ, starInterval, starSize, starScaleX, starScaleY;
 
 function draw() {  
   orbitControl();
@@ -306,6 +291,7 @@ function draw() {
     for(var i = spectrum.length; i > 0; i--){
 			amp = spectrum[i];
       planetB = map(amp, 0, 255, 30, 90);
+      starScaleX = map(amp, 0, 255, 1, 5);
       /*sqamp = Math.sqrt(amp);
       shapeY = map(sqamp, 0, 16, height, 0);
       console.log(amp);
@@ -322,23 +308,18 @@ function draw() {
     var zradius = planetSize + 150;
 		
     enchue = map(enc2, 0, 127, 0, 360);
-   
-    if(isNaN(wavehue)){
-    	wavehue = 270;
+    if(isNaN(enchue)){
+    	enchue = 270;
     }
     
     for(var i = 0; i < waveBands; i++){     
       wavesat = 80;
       waveb = map(poscount, 800, 1200, 85, 95);
-      //stroke(wavehue, wavesat, waveb);
-      //fill(wavehue, wavesat, waveb);
-      //var angle = map(i, 0, waveBands, 0, TWO_PI);
 
       waveX = cos(i) * xradius;
       waveY = map(wavespectrum[i], -1, 1, height, -height);
       waveZ = sin(i) * zradius;
 
-      //wavehue = map(treble, 0, 255, 0, 15);
     //draw waveform ring
     push();
       noFill();
@@ -363,12 +344,13 @@ function draw() {
     console.log(`poscount = ${poscount}\n negcount = ${negcount}`);*/
   }
   
-  //set encoder for stars
-  numStars = map(enc4, 0, 127, 50, 1000);
+  //set encoder for number of stars
+  numStars = map(enc4, 0, 127, 0, 1000);
   if(isNaN(numStars)){
   	numStars = stars.length;
   }
-  console.log(numStars);
+  
+  //adjust number of stars in array based on encoder
   var diff = stars.length - numStars;
   if(diff > 0){ //array is too long
   	for(var i = 0; i < diff; i++){
@@ -378,28 +360,34 @@ function draw() {
   else if(diff < 0){ //array is too short
   	for(var i = 0; i < Math.abs(diff); i++){
       var star = {
-        x:random(-width, width),
-        y:random(-height, height),
+        x:random(-width*1.2, width*1.2),
+        y:random(-height*1.2, height*1.2),
         z:random(-planetSize - 200, planetSize/2),
-        size:random(1, 3),
-        alpha:random(30, 95)
+        brightness:random(20, 80)
         };
       stars.push(star);
       }
   }
+  
+  //set encoder and set scale for stars
+  starScaleY = map(enc8, 0, 127, 0, 15);
+  if(isNaN(starScaleX)){
+      	starScaleX = 1;
+  }
+  if(isNaN(starScaleY)){
+    starScaleY = 1;
+  } else{
+    starScaleY += starScaleX;
+  }
+
+  
   //render stars
   for(var i = 0; i < stars.length; i++){
   		push();
-    	var starb = random(30, 95)
-      starScale = map(treble, 0, 255, 1, 7);
-      starSize = random(1, 3);
-      
-    	translate(stars[i].x, stars[i].y, stars[i].z);
+      starSize = random(1, 5);
       noStroke();
-      ambientMaterial(0, 0, starb, starb);
-      
-      scale(starScale);
-    	sphere(starSize);
+      ambientMaterial(0, 0, stars[i].brightness, stars[i].brightness);
+      ellipse(stars[i].x, stars[i].y, starSize*starScaleX, starSize*starScaleY);
       pop();
 	}
   
